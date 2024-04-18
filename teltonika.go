@@ -9,10 +9,13 @@ package teltonika
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/filipkroca/teltonikaparser"
 )
 
 type GenerationType uint8
@@ -92,6 +95,52 @@ type Data struct {
 type IOElement struct {
 	Id    uint16 `json:"id"`
 	Value []byte `json:"value"`
+}
+
+func (e IOElement) MarshalJSON() ([]byte, error) {
+	var raw struct {
+		Id    uint16 `json:"id"`
+		Raw   []byte `json:"raw"`
+		Value any    `json:"value"`
+		Label string `json:"label"`
+	}
+
+	ele := &teltonikaparser.Element{
+		Length: uint16(len(e.Value)),
+		IOID:   e.Id,
+		Value:  e.Value,
+	}
+
+	hd := teltonikaparser.HumanDecoder{}
+	decoded, err := hd.Human(ele, "FMBXY")
+	if err != nil {
+		return nil, fmt.Errorf("error when converting human, %v\n", err)
+	}
+
+	// get final decoded value to value which is specified in ./teltonikajson/ in paramether FinalConversion
+	val, err := (*decoded).GetFinalValue()
+	if err != nil {
+		return nil, fmt.Errorf("unable to GetFinalValue() %v", err)
+	}
+
+	raw.Id = e.Id
+	raw.Raw = e.Value
+	raw.Label = decoded.AvlEncodeKey.PropertyName
+	if val != nil && !isAllZeros(raw.Raw) {
+		raw.Value = val
+	}
+
+	return json.Marshal(raw)
+}
+
+func isAllZeros(data []byte) bool {
+	for _, b := range data {
+		if b != 0 {
+			return false
+		}
+	}
+
+	return true
 }
 
 type Message struct {
