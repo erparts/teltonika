@@ -120,7 +120,9 @@ func (e IOElement) MarshalJSON() ([]byte, error) {
 	// get final decoded value to value which is specified in ./teltonikajson/ in paramether FinalConversion
 	val, err := (*decoded).GetFinalValue()
 	if err != nil {
-		return nil, fmt.Errorf("unable to GetFinalValue() %v", err)
+		if !isAllZeros(e.Value) {
+			return nil, fmt.Errorf("unable to GetFinalValue() %v", err)
+		}
 	}
 
 	raw.Id = e.Id

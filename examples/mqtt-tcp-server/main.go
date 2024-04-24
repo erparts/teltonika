@@ -396,17 +396,23 @@ func main() {
 	serverHttp := NewHTTPServerLogger(httpAddress, serverTcp, logger)
 
 	serverTcp.OnPacket = func(imei string, pkt *teltonika.Packet) {
+		payload := map[string]any{
+			"imei":   imei,
+			"packet": pkt,
+			"time":   time.Now(),
+		}
+
 		if pkt.Messages != nil && len(pkt.Messages) > 0 {
 			serverHttp.WriteMessage(imei, &pkt.Messages[0])
 		}
 		if pkt.Data != nil {
 			go func() {
 				// MQTT publish
-				payload, _ := json.Marshal(pkt)
+				payloadJSON, _ := json.Marshal(payload)
 				m.Publish(ctx, &mqtt.Message{
 					Topic:   publishTopic,
 					QoS:     mqtt.QoS0,
-					Payload: payload,
+					Payload: payloadJSON,
 				})
 			}()
 		}
